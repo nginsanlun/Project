@@ -42,76 +42,78 @@ Order by PercentagePopulationInfected desc
 --Showing Countries with Highest Death Count per Population
 --Let's break things down by continent
 
-SELECT continent, MAX(cast(total_deaths as int)) as TotalDeathCount
---, (total_deaths/population)*100 
---as HightestDeathPerPopulation
-FROM Project..CovidDeaths
-WHERE continent is not null
-GROUP BY continent
-ORDER BY TotalDeathCount desc
+--SELECT continent, MAX(cast(total_deaths as int)) as TotalDeathCount
+----, (total_deaths/population)*100 
+----as HightestDeathPerPopulation
+--FROM Project..CovidDeaths
+--WHERE continent is not null
+--GROUP BY continent
+--ORDER BY TotalDeathCount desc
 
 --Global Numbers
-SELECT date, SUM(new_cases) as NewCases, SUM(cast(new_deaths as int)) as TotalDeaths,
-SUM(cast(new_deaths as int))/SUM(new_cases)*100 as DeathPercentage
-FROM Project..CovidDeaths
-where continent is not null
-Group by date
-Order by 1, 2
+
+--SELECT date, SUM(new_cases) as NewCases, SUM(cast(new_deaths as int)) as TotalDeaths,
+--SUM(cast(new_deaths as int))/SUM(new_cases)*100 as DeathPercentage
+--FROM Project..CovidDeaths
+--where continent is not null
+--Group by date
+--Order by 1, 2
 
 --Looking at Total Population vs Vacciantions
 
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
-SUM(CONVERT(int, vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date) as VaccinationPartByLocation
-FROM Project..CovidVaccinations dea
-Join Project..CovidVaccinations vac
-ON dea.location = vac.location
-and dea.date = vac.date
-where dea.continent is not null
+--SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+--SUM(CONVERT(int, vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date) as VaccinationPartByLocation
+--FROM Project..CovidVaccinations dea
+--Join Project..CovidVaccinations vac
+--ON dea.location = vac.location
+--and dea.date = vac.date
+--where dea.continent is not null
 
 --USE CTE
 
-WITH PopVsVac (continent, location, date, population, new_vacciantions, VacciantionPartByLocation)
-as(
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
-SUM(CONVERT(int, vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date, dea.location) 
+--WITH PopVsVac (continent, location, date, population, new_vacciantions, VacciantionPartByLocation)
+--as(
+--SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+--SUM(CONVERT(int, vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date, dea.location) 
+--as VaccinationPartByLocation
+--FROM Project..CovidVaccinations dea
+--Join Project..CovidVaccinations vac
+--ON dea.location = vac.location
+--and dea.date = vac.date
+--where dea.continent is not null
+--)
+--SELECT *, (VaccinationPartByLocation/population)*100 as VacPercentage
+--FROM PopVsVac
+
+--Temp table
+
+DROP Table if exists #PercentPeopleVaccinated
+Create Table #PercentVaccinatedPeople
+(
+Continent nvarchar(255),
+Location nvarchar(255),
+Date datetime,
+Population numeric,
+New_vaccinations numeric,
+VaccinationPartByLocation numeric
+)
+
+INSERT INTO #PercentVaccinatedPeople
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(convert(int,vac.new_vaccinations)) OVER (Partition by dea.Location Order by dea.location, dea.Date) 
 as VaccinationPartByLocation
 FROM Project..CovidVaccinations dea
 Join Project..CovidVaccinations vac
 ON dea.location = vac.location
 and dea.date = vac.date
 where dea.continent is not null
-)
-SELECT *, (VaccinationPartByLocation/population)*100 as VacPercentage
-FROM PopVsVac
 
---Temp table
-
-DROP Table if exists #PercentPopulationVaccinated
-Create table #PercentPopulationVaccinated
-(
-continent nvarchar(255),
-location nvarchar(255),
-date datetime,
-population numeric,
-new_vaccinations numeric,
-VaccinationPartByLocation numeric
-)
-
-INSERT INTO #PercentPopulationVaccinated
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
-SUM(CONVERT(int,vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date, dea.location) 
-as VaccinationPartByLocation
-FROM Project..CovidVaccinations dea
-Join Project..CovidVaccinations vac
-ON dea.location = vac.location
-and dea.date = vac.date
-
-SELECT *, (VaccinationPartByLocation/population)*100 as VacPercentage
-FROM #PercentPopulationVaccinated
+SELECT *, (VaccinationPartByLocation/Population)*100 as VacPercentage
+FROM #PercentVaccinatedPeople
 
 --Creating View to store data later visualizations
 
-Create View PercentPopulationVaccinated as
+Create View PercentVaccinatedPeople as
 Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
 SUM(CONVERT(int, vac.new_vaccinations)) OVER (Partition by dea.location Order By dea.date, dea.location) 
 as VaccinationPartByLocation
@@ -122,4 +124,4 @@ and dea.date = vac.date
 where dea.continent is not null
 
 Select *
-FROM PercentPopulationVaccinated
+FROM PercentVaccinatedPeople
